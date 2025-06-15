@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ボイドモデル シミュレーター</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            min-height: 600px;
+        }
+        .canvas-container {
+            width: 100%;
+            position: relative;
+            background: #141925;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            min-height: 600px;
+            padding-top: 0;
+        }
+        .controls {
+            width: 100%;
+            padding: 20px;
+            background: #fafafa;
+            border-top: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+        .controls-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 300px;
+            margin-bottom: 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .control-group h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1.1em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+        .control-item {
+            margin-bottom: 12px;
+        }
+        .control-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        .control-item input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        .control-item input[type="number"] {
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .control-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .value-display {
+            font-size: 0.9em;
+            color: #666;
+            text-align: right;
+        }
+        .info-panel {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .info-panel h4 {
+            margin: 0 0 8px 0;
+            color: #0c5460;
+        }
+        .info-panel p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ボイドモデル シミュレーター</h1>
+            <p>群れの動きをリアルタイムで観察・調整できるインタラクティブシミュレーション</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="canvas-container" id="canvas-container">
+                <!-- p5.jsキャンバスがここに挿入されます -->
+            </div>
+            
+            <div class="controls">
+                <div class="controls-container">
+                    <div class="control-group">
+                        <h3>シミュレーション制御</h3>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="playPauseBtn">一時停止</button>
+                            <button class="btn btn-secondary" id="resetBtn">リセット</button>
+                        </div>
+                        
+                        <div class="control-item">
+                            <label for="simulationMode">シミュレーションモード</label>
+                            <select id="simulationMode">
+                                <option value="basic">基本ボイドモデル</option>
+                                <option value="prey">餌ありモデル</option>
+                                <option value="hunter" selected>外敵ありモデル</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-item">
+                            <label for="presetSelect">プリセット</label>
+                            <select id="presetSelect">
+                                <option value="default">デフォルト</option>
+                                <option value="torus">トーラス</option>
+                                <option value="dynamic_parallel">動的並列</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>基本パラメータ</h3>
+                        <div class="slider-container">
+                            <label for="agentCount">ボイド数:</label>
+                            <input type="range" id="agentCount" min="1" max="512" value="256" step="1">
+                            <span id="agentCountValue">256</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="minVel">最小速度:</label>
+                            <input type="range" id="minVel" min="0.1" max="1.0" value="0.3" step="0.01">
+                            <span id="minVelValue">0.3</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="maxVel">最大速度:</label>
+                            <input type="range" id="maxVel" min="0.1" max="1.0" value="0.3" step="0.01">
+                            <span id="maxVelValue">0.3</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>結合力</h3>
+                        <div class="slider-container">
+                            <label for="cohesionForce">力の強さ:</label>
+                            <input type="range" id="cohesionForce" min="0.001" max="0.1" value="0.008" step="0.001">
+                            <span id="cohesionForceValue">0.008</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="cohesionDistance">距離:</label>
+                            <input type="range" id="cohesionDistance" min="0.1" max="2.0" value="0.8" step="0.1">
+                            <span id="cohesionDistanceValue">0.8</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="cohesionAngle">角度:</label>
+                            <input type="range" id="cohesionAngle" min="0" max="3.14" value="3.14" step="0.1">
+                            <span id="cohesionAngleValue">π</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>分離力</h3>
+                        <div class="slider-container">
+                            <label for="separationForce">力の強さ:</label>
+                            <input type="range" id="separationForce" min="0.1" max="5.0" value="1.2" step="0.1">
+                            <span id="separationForceValue">1.2</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="separationDistance">距離:</label>
+                            <input type="range" id="separationDistance" min="0.01" max="0.2" value="0.08" step="0.01">
+                            <span id="separationDistanceValue">0.08</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="separationAngle">角度:</label>
+                            <input type="range" id="separationAngle" min="0" max="3.14" value="1.57" step="0.1">
+                            <span id="separationAngleValue">π/2</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>整列力</h3>
+                        <div class="slider-container">
+                            <label for="alignmentForce">力の強さ:</label>
+                            <input type="range" id="alignmentForce" min="0.001" max="0.1" value="0.04" step="0.001">
+                            <span id="alignmentForceValue">0.04</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="alignmentDistance">距離:</label>
+                            <input type="range" id="alignmentDistance" min="0.1" max="2.0" value="0.5" step="0.1">
+                            <span id="alignmentDistanceValue">0.5</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="alignmentAngle">角度:</label>
+                            <input type="range" id="alignmentAngle" min="0" max="3.14" value="0.9" step="0.1">
+                            <span id="alignmentAngleValue">0.9</span>
+                        </div>
+                    </div>
+
+                    <div id="preyControls" class="control-group" style="display: none;">
+                        <h3>餌パラメータ</h3>
+                        <div class="slider-container">
+                            <label for="preyForce">追従力:</label>
+                            <input type="range" id="preyForce" min="0.1" max="1.0" value="0.54" step="0.01">
+                            <span id="preyForceValue">0.54</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="preyMovementStep">移動間隔:</label>
+                            <input type="range" id="preyMovementStep" min="100" max="1000" value="300" step="10">
+                            <span id="preyMovementStepValue">300</span>
+                        </div>
+                    </div>
+
+                    <div id="hunterControls" class="control-group">
+                        <h3>外敵パラメータ</h3>
+                        <div class="slider-container">
+                            <label for="hunterCount">外敵数:</label>
+                            <input type="range" id="hunterCount" min="1" max="20" value="5" step="1">
+                            <span id="hunterCountValue">5</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="hunterForce">追跡力:</label>
+                            <input type="range" id="hunterForce" min="0.1" max="2.0" value="1.08" step="0.01">
+                            <span id="hunterForceValue">1.08</span>
+                        </div>
+                        <div class="slider-container">
+                            <label for="escapeForce">逃避力:</label>
+                            <input type="range" id="escapeForce" min="0.1" max="2.0" value="0.9" step="0.01">
+                            <span id="escapeForceValue">0.9</span>
+                        </div>
+                    </div>
+
+                    <div class="info-panel">
+                        <h4>操作方法</h4>
+                        <p>• 各パラメータをリアルタイムで調整可能<br>
+                        • プリセットで特徴的な動きを体験<br>
+                        • 実験モードで餌や外敵の影響を観察</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="boid.js"></script>
+</body>
+</html>
+
+
