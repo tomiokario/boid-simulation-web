@@ -41,7 +41,8 @@ let params = {
     hunterCount: 5,  // 10から5に減少
     hunterForce: 1.08,  // 0.18 から 0.54 に増加
     escapeForce: 0.9,  // 0.3 から 0.9 に増加
-    hunterNClosest: 10
+    hunterNClosest: 10,
+    hunterSpeed: 0.5  // ハンターの速度パラメータを追加
 };
 
 // 現在のシミュレーションモード
@@ -63,7 +64,8 @@ const presets = {
         // 外敵パラメータ
         hunterCount: 5,
         hunterForce: 1.08,
-        escapeForce: 0.9
+        escapeForce: 0.9,
+        hunterSpeed: 0.5
     },
     torus: {
         // トーラス設定 - より広い範囲での群れ行動
@@ -79,7 +81,8 @@ const presets = {
         // 外敵パラメータ
         hunterCount: 3,
         hunterForce: 0.9,
-        escapeForce: 1.2
+        escapeForce: 1.2,
+        hunterSpeed: 0.7
     },
     dynamic_parallel: {
         // 動的並列設定 - より強い整列性
@@ -95,7 +98,8 @@ const presets = {
         // 外敵パラメータ
         hunterCount: 7,
         hunterForce: 1.2,
-        escapeForce: 1.0
+        escapeForce: 1.0,
+        hunterSpeed: 0.6
     }
 };
 
@@ -409,6 +413,7 @@ class Hunter extends Boid {
         super();
         this.isHunter = true;
         this.radius = 4; // 外敵の衝突判定用の半径を設定
+        this.maxSpeed = params.maxVel * (1 + params.hunterSpeed); // ハンターの速度を設定
     }
 
     // 外敵同士の分離機能を追加
@@ -700,7 +705,7 @@ function setupSliders() {
         'separationForce', 'separationDistance', 'separationAngle',
         'alignmentForce', 'alignmentDistance', 'alignmentAngle',
         'preyForce', 'preyMovementStep',
-        'hunterCount', 'hunterForce', 'escapeForce'
+        'hunterCount', 'hunterForce', 'escapeForce', 'hunterSpeed'
     ];
     
     sliders.forEach(param => {
