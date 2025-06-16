@@ -130,6 +130,32 @@ class Boid {
         return d < (this.radius + hunter.radius);
     }
 
+    // トーラス距離を計算する補助関数
+    torusDistance(pos1, pos2) {
+        let dx = Math.abs(pos1.x - pos2.x);
+        let dy = Math.abs(pos1.y - pos2.y);
+        
+        // トーラス境界を考慮した距離計算
+        dx = Math.min(dx, width - dx);
+        dy = Math.min(dy, height - dy);
+        
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // トーラス位置を考慮した位置計算
+    torusPosition(pos) {
+        let x = pos.x;
+        let y = pos.y;
+        
+        // トーラス境界を考慮した位置計算
+        if (x < 0) x += width;
+        if (x > width) x -= width;
+        if (y < 0) y += height;
+        if (y > height) y -= height;
+        
+        return createVector(x, y);
+    }
+
     // 3つの基本的な力を計算
     flock(boids) {
         let sep = this.separate(boids);
@@ -153,11 +179,19 @@ class Boid {
         let count = 0;
 
         for (let other of boids) {
-            let d = p5.Vector.dist(this.position, other.position);
+            let d = this.torusDistance(this.position, other.position);
             if (d > 0 && d < params.separationDistance * 100) {
                 let diff = p5.Vector.sub(this.position, other.position);
+                // トーラス境界を考慮した方向ベクトルの計算
+                if (Math.abs(diff.x) > width/2) {
+                    diff.x = diff.x > 0 ? diff.x - width : diff.x + width;
+                }
+                if (Math.abs(diff.y) > height/2) {
+                    diff.y = diff.y > 0 ? diff.y - height : diff.y + height;
+                }
                 diff.normalize();
-                diff.div(d); // 距離で重み付け
+                let weight = 1.0 - (d / (params.separationDistance * 100));
+                diff.mult(weight);
                 steer.add(diff);
                 count++;
             }
@@ -179,7 +213,7 @@ class Boid {
         let count = 0;
 
         for (let other of boids) {
-            let d = p5.Vector.dist(this.position, other.position);
+            let d = this.torusDistance(this.position, other.position);
             if (d > 0 && d < params.alignmentDistance * 100) {
                 sum.add(other.velocity);
                 count++;
@@ -203,9 +237,11 @@ class Boid {
         let count = 0;
 
         for (let other of boids) {
-            let d = p5.Vector.dist(this.position, other.position);
+            let d = this.torusDistance(this.position, other.position);
             if (d > 0 && d < params.cohesionDistance * 100) {
-                sum.add(other.position);
+                // トーラス境界を考慮した位置の計算
+                let otherPos = this.torusPosition(other.position);
+                sum.add(otherPos);
                 count++;
             }
         }
@@ -617,6 +653,7 @@ function draw() {
 // 情報表示
 function displayInfo() {
     fill(255, 200);
+    /*
     textSize(12);
     text(`ボイド数: ${boids.length}`, 10, 20);
     text(`モード: ${getModeName()}`, 10, 35);
@@ -627,6 +664,7 @@ function displayInfo() {
     } else if (simulationMode === 'hunter') {
         text(`外敵数: ${hunters.length}`, 10, 65);
     }
+    */
 }
 
 function getModeName() {
