@@ -15,8 +15,8 @@ const timeStep = 1000 / targetFPS;  // 1フレームあたりの時間（ミリ�
 let params = {
     // 基本パラメータ
     agentCount: 256,
-    minVel: 0.3,  // 0.18 から 0.3 に変更
-    maxVel: 0.3,  // 1.08 から 0.3 に変更
+    minVel: 0.3,
+    maxVel: 0.3,
     
     // 結合力
     cohesionForce: 0.008,
@@ -24,9 +24,13 @@ let params = {
     cohesionAngle: 0.3,
     
     // 分離力
-    separationForce: 1.2,  // 2.0から1.2に減少
-    separationDistance: 0.08,  // 0.05から0.08に増加
+    separationForce: 1.2,
+    separationDistance: 0.08,
     separationAngle: 0.6,
+    
+    // 分離速度
+    separationSpeedForce: 2.0,
+    separationSpeedDistance: 0.15,  // 分離力の距離より大きい値
     
     // 整列力
     alignmentForce: 0.04,
@@ -34,15 +38,15 @@ let params = {
     alignmentAngle: 0.2,
     
     // 餌パラメータ
-    preyForce: 0.54,  // 0.18 から 0.54 に増加
+    preyForce: 0.54,
     preyMovementStep: 300,
     
     // 外敵パラメータ
-    hunterCount: 5,  // 10から5に減少
-    hunterForce: 1.08,  // 0.18 から 0.54 に増加
-    escapeForce: 0.9,  // 0.3 から 0.9 に増加
+    hunterCount: 5,
+    hunterForce: 1.08,
+    escapeForce: 0.9,
     hunterNClosest: 10,
-    hunterSpeed: 0.5  // ハンターの速度パラメータを追加
+    hunterSpeed: 0.5
 };
 
 // 現在のシミュレーションモード
@@ -58,6 +62,8 @@ const presets = {
         separationForce: 1.2,
         separationDistance: 0.08,
         separationAngle: 0.6,
+        separationSpeedForce: 2.0,
+        separationSpeedDistance: 0.15,
         alignmentForce: 0.04,
         alignmentDistance: 0.5,
         alignmentAngle: 0.2,
@@ -75,6 +81,8 @@ const presets = {
         separationForce: 1.2,
         separationDistance: 0.08,
         separationAngle: 0.6,
+        separationSpeedForce: 2.0,
+        separationSpeedDistance: 0.15,
         alignmentForce: 0.02,
         alignmentDistance: 1.0,
         alignmentAngle: 0.2,
@@ -92,6 +100,8 @@ const presets = {
         separationForce: 1.2,
         separationDistance: 0.08,
         separationAngle: 0.6,
+        separationSpeedForce: 2.0,
+        separationSpeedDistance: 0.15,
         alignmentForce: 0.06,
         alignmentDistance: 1.5,
         alignmentAngle: 0.2,
@@ -163,16 +173,19 @@ class Boid {
     // 3つの基本的な力を計算
     flock(boids) {
         let sep = this.separate(boids);
+        let sepSpeed = this.separateSpeed(boids);
         let ali = this.align(boids);
         let coh = this.cohesion(boids);
 
         // 力の重み付け
         sep.mult(params.separationForce);
+        sepSpeed.mult(params.separationSpeedForce);
         ali.mult(params.alignmentForce);
         coh.mult(params.cohesionForce);
 
         // 加速度に力を適用
         this.acceleration.add(sep);
+        this.acceleration.add(sepSpeed);
         this.acceleration.add(ali);
         this.acceleration.add(coh);
     }
@@ -194,8 +207,46 @@ class Boid {
                     diff.y = diff.y > 0 ? diff.y - height : diff.y + height;
                 }
                 diff.normalize();
-                let weight = 1.0 - (d / (params.separationDistance * 100));
-                diff.mult(weight);
+                diff.mult(params.separationForce);
+                steer.add(diff);
+                count++;
+            }
+        }
+
+        if (count > 0) {
+            steer.div(count);
+            steer.normalize();
+            steer.mult(this.maxSpeed);
+            steer.sub(this.velocity);
+            steer.limit(this.maxForce);
+        }
+        return steer;
+    }
+
+    // 分離速度 - 近くのボイドから離れる速度を制御
+    separateSpeed(boids) {
+        let steer = createVector(0, 0);
+        let count = 0;
+
+        for (let other of boids) {
+            let d = this.torusDistance(this.position, other.position);
+            if (d > 0 && d < params.separationSpeedDistance * 100) {
+                let diff = p5.Vector.sub(this.position, other.position);
+                // トーラス境界を考慮した方向ベクトルの計算
+                if (Math.abs(diff.x) > width/2) {
+                    diff.x = diff.x > 0 ? diff.x - width : diff.x + width;
+                }
+                if (Math.abs(diff.y) > height/2) {
+                    diff.y = diff.y > 0 ? diff.y - height : diff.y + height;
+                }
+                diff.normalize();
+                
+                // 距離に応じた重み付けを計算
+                let weight = 1.0 - (d / (params.separationSpeedDistance * 100));
+                weight = weight * weight;  // 非線形性を持たせる
+                
+                // 速度に重みを適用
+                diff.mult(weight * params.separationSpeedForce);
                 steer.add(diff);
                 count++;
             }
@@ -480,8 +531,8 @@ class Hunter extends Boid {
         let separationForce = this.separateFromHunters(hunters);
         this.acceleration.add(separationForce);
         
-        // 基本的なボイドの動きを適用
-        this.flock(boids);
+        // ボイドとの分離を無効化（ボイドに近づいても離れないようにする）
+        // this.flock(boids);  // この行をコメントアウトまたは削除
         
         // 親クラスのupdateメソッドを呼び出し
         super.update(deltaTime);
@@ -702,7 +753,7 @@ function setupSliders() {
     const sliders = [
         'agentCount', 'minVel', 'maxVel',
         'cohesionForce', 'cohesionDistance', 'cohesionAngle',
-        'separationForce', 'separationDistance', 'separationAngle',
+        'separationForce', 'separationDistance', 'separationAngle', 'separationSpeedForce', 'separationSpeedDistance',
         'alignmentForce', 'alignmentDistance', 'alignmentAngle',
         'preyForce', 'preyMovementStep',
         'hunterCount', 'hunterForce', 'escapeForce', 'hunterSpeed'
